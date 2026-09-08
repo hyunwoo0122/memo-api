@@ -30,8 +30,15 @@ class Memo(BaseModel): # BaseModel을 상속받아 Memo라는 새 클라스를 �
     title: str
     content: str
 
-memos = []
+# id를 포함한 정보를 응답받음 
+class MemoResponse(BaseModel):
+    id: int
+    title: str
+    content: str
 
+    # 원래 Pydantic은 딕셔너리를 기대하는데 True로 하면 SQLAlchemy객체(MemoDB 인스턴스)처럼 같은 속성의 값도 가져온다 
+    class Config:
+        from_attributes = True
 
 @app.get("/health") # 데코레이션 >> /health라는 주소로 GET방식의 요청이 왔을때 바로 아래 함수를 실행해라
 def health_check(): # 실제로 실행되는 함수
@@ -42,11 +49,11 @@ def health_check(): # 실제로 실행되는 함수
 def get_memo(memo_id: int): # 받는 값이 URL의 매개변수와 같아야 한다. int는 타입을 미리 알려줘서 문자열 같은걸 자동으로 정수형으로 변환시켜준다. FaastAPI가 알아서 Erorr를 반환해줌.
     return {"memo_id": memo_id} # 지금은 확인용 Json
 
-@app.get("/memos")
+@app.get("/memos", response_model=list[MemoResponse])
 def get_memos(db: Session = Depends(get_db)): # DB세션을 주입
     return db.query(models.MemoDB).all()  # MemoDB 테이블에 있는 모든 행을 조회해서 리스트로 돌려줌
 
-@app.post("/memos") # /memos주소로 POST방식의 요청이 왔을때 바로 아래 함수를 실행(GET은 데이터 조회, POST는 데이터 생성)
+@app.post("/memos", response_model=MemoResponse) # /memos주소로 POST방식의 요청이 왔을때 바로 아래 함수를 실행(GET은 데이터 조회, POST는 데이터 생성)
 # 매개변수를 위에서 만든 Memo클래스 타입으로 지정. 요청에 들어온 JSON을 자동으로 클래스 타입인 Memo로 변환
 # Depends(get_db)는 "이 요청이 들어올 때마다 get_db()를 실행해서 얻은 세션을 db에 넣어달라"는 뜻
 def create_memo(memo: Memo, db: Session = Depends(get_db)): 
@@ -62,7 +69,7 @@ def create_memo(memo: Memo, db: Session = Depends(get_db)):
     return new_memo
 
 # URL에서 어떤 메모를 수정할지 ID를 받음
-@app.put("/memos/{memo_id}") 
+@app.put("/memos/{memo_id}", response_model=MemoResponse) 
 # 3가지 변수를 한번에 받음. URL의 memo_id, 요청본문의 새 내용, 
 def update_memo(memo_id: int, memo: Memo, db: Session = Depends(get_db)):
     # 테이블에서 ID가 같은 첫번째 행을 찾아 가져온다
@@ -84,7 +91,7 @@ def update_memo(memo_id: int, memo: Memo, db: Session = Depends(get_db)):
 # URL에서 어떤 메모를 수정할지 ID를 받음
 @app.delete("/memos/{memo_id}") 
 # 3가지 변수를 한번에 받음. URL의 memo_id, 요청본문의 새 내용, 
-def update_memo(memo_id: int, db: Session = Depends(get_db)):
+def delete_memo(memo_id: int, db: Session = Depends(get_db)):
     # 테이블에서 ID가 같은 첫번째 행을 찾아 가져온다
     db_memo = db.query(models.MemoDB).filter(models.MemoDB.id == memo_id).first()
 
