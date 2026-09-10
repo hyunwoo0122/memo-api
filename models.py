@@ -11,4 +11,12 @@ class MemoDB(Base):
     title = Column(String)
     content = Column(String)
 
+# Base를 상속받아 테이블을 정의 
+class UserDB(Base):
+    __tablename__ = "users"
 
+    id = Column(Integer, primary_key=True, index=True)
+    # 사용자 이름을 저장하는 컬럼 unique는 중복불가를 해주는 역할
+    username = Column(String, unique=True, index=True)
+    # 비밀번호를 저장할때 암호화 해주는 부분
+    hashed_password = Column(String)

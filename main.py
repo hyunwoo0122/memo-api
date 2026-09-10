@@ -10,6 +10,8 @@ import models
 from sqlalchemy.orm import Session
 from database import SessionLocal
 
+import auth
+
 
 app = FastAPI() # 클래스를 실제 애플리케이션 객체 app을 만든다. 이후 모든 API는 app에 등록된다
 
@@ -29,6 +31,10 @@ class Memo(BaseModel): # BaseModel을 상속받아 Memo라는 새 클라스를 �
     # 메모가 반드시 가져야 하는 항목
     title: str
     content: str
+
+class UserCreate(BaseModel):
+    username: str
+    password: str
 
 # id를 포함한 정보를 응답받음 
 class MemoResponse(BaseModel):
@@ -104,3 +110,21 @@ def delete_memo(memo_id: int, db: Session = Depends(get_db)):
     # 실제로 반영
     db.commit()
     return {"message": "삭제되었습니다."}
+
+
+@app.post("/register")
+def register(user: UserCreate, db: Session = Depends(get_db)):
+    # username이 있는지 확인
+    existring_user = db.query(models.UserDB).filter(models.UserDB.username == user.username).first()
+
+    if existring_user:
+        # 400인 이유 : 요청 자체가 잘못되었기 떄문에 404 : 찾는 대상이 없음
+        raise HTTPException(status_code=400, detail="이미 존재하는 ID입니다.")
+
+    # 비밀번호를 암호화
+    hashed_pw = auth.hash_password(user.password)
+    new_user = models.UserDB(username = user.username, hashed_password = hashed_pw)
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return {"message": "회원가입 성공", "username": new_user.username} 
