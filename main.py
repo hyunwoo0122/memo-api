@@ -1,7 +1,11 @@
 # FastAPI패키지에서 FastAPI라는 클래스를 가져온다.
 # Depends는 FastAPI에게 이 함수를 실행하기 전에 의존성을 먼저 실행시켜주는 역할
 from fastapi import FastAPI, Depends, HTTPException
- 
+
+# HTTPBearer → "요청 헤더에 Authorization: Bearer <토큰> 형식으로 값이 왔는지" 자동으로 확인해주는 FastAPI의 보안 도구
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from jose import JWTError, jwt
+
 from pydantic import BaseModel
 from database import Base, engine
 import models
@@ -26,6 +30,25 @@ def get_db():
         yield db
     finally :
         db.close()
+
+security = HTTPBearer()
+
+def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        # 토큰이 위조 되었거나 다른 키로 만들어져 있으면 에러가 발생함(JWTError)
+        payload = jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail= "유효하지 않은 토큰입니다.")
+    except JWTError:
+        raise HTTPException(status_code= 401, detail= "유효하지 않은 토큰입니다.")
+
+    user = db.query(models.UserDB).filter(models.UserDB.username == username).first()
+    if user is None:
+        raise HTTPException(status_code= 401, detail= "사용자를 찾을 수 없습니다.")
+
+    return user
     
 class Memo(BaseModel): # BaseModel을 상속받아 Memo라는 새 클라스를 정의 하고 "메모 하나의 데이터 형태"를 나타냄
     # 메모가 반드시 가져야 하는 항목
@@ -56,13 +79,13 @@ def get_memo(memo_id: int): # 받는 값이 URL의 매개변수와 같아야 한
     return {"memo_id": memo_id} # 지금은 확인용 Json
 
 @app.get("/memos", response_model=list[MemoResponse])
-def get_memos(db: Session = Depends(get_db)): # DB세션을 주입
+def get_memos(db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)): # DB세션을 주입
     return db.query(models.MemoDB).all()  # MemoDB 테이블에 있는 모든 행을 조회해서 리스트로 돌려줌
 
 @app.post("/memos", response_model=MemoResponse) # /memos주소로 POST방식의 요청이 왔을때 바로 아래 함수를 실행(GET은 데이터 조회, POST는 데이터 생성)
 # 매개변수를 위에서 만든 Memo클래스 타입으로 지정. 요청에 들어온 JSON을 자동으로 클래스 타입인 Memo로 변환
 # Depends(get_db)는 "이 요청이 들어올 때마다 get_db()를 실행해서 얻은 세션을 db에 넣어달라"는 뜻
-def create_memo(memo: Memo, db: Session = Depends(get_db)): 
+def create_memo(memo: Memo, db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)): 
     # 요청으로 받은 Pydantic Memo 객체(memo)의 값을 이용해서, DB 테이블용 객체(MemoDB)를 새로 만듬
     # (Pydantic 모델과 DB 모델이 이름은 비슷해도 서로 다른 객체라 이렇게 변환해줘야 한다)
     new_memo = models.MemoDB(title=memo.title, content=memo.content)
@@ -77,7 +100,7 @@ def create_memo(memo: Memo, db: Session = Depends(get_db)):
 # URL에서 어떤 메모를 수정할지 ID를 받음
 @app.put("/memos/{memo_id}", response_model=MemoResponse) 
 # 3가지 변수를 한번에 받음. URL의 memo_id, 요청본문의 새 내용, 
-def update_memo(memo_id: int, memo: Memo, db: Session = Depends(get_db)):
+def update_memo(memo_id: int, memo: Memo, db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)):
     # 테이블에서 ID가 같은 첫번째 행을 찾아 가져온다
     db_memo = db.query(models.MemoDB).filter(models.MemoDB.id == memo_id).first()
 
@@ -97,7 +120,7 @@ def update_memo(memo_id: int, memo: Memo, db: Session = Depends(get_db)):
 # URL에서 어떤 메모를 수정할지 ID를 받음
 @app.delete("/memos/{memo_id}") 
 # 3가지 변수를 한번에 받음. URL의 memo_id, 요청본문의 새 내용, 
-def delete_memo(memo_id: int, db: Session = Depends(get_db)):
+def delete_memo(memo_id: int, db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)):
     # 테이블에서 ID가 같은 첫번째 행을 찾아 가져온다
     db_memo = db.query(models.MemoDB).filter(models.MemoDB.id == memo_id).first()
 
@@ -128,3 +151,14 @@ def register(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     return {"message": "회원가입 성공", "username": new_user.username} 
+
+@app.post("/login")
+def login(user: UserCreate, db: Session = Depends(get_db)):
+    db_user = db.query(models.UserDB).filter(models.UserDB.username == user.username).first()
+
+    # ID, PW 둘중 하나라고 없으면을 체크
+    if db_user is None or not auth.verify_password(user.password, db_user.hashed_password):
+        raise HTTPException(status_code= 401, detail= "ID 또는 PW가 올바르지 않습니다.")
+
+    access_token = auth.create_access_token(data={"sub": db_user.username})
+    return {"access_token": access_token, "token_type": "bearer"}
