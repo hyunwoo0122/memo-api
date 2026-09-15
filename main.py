@@ -74,9 +74,17 @@ def health_check(): # 실제로 실행되는 함수
     return {"status": "ok"} # Python 딕셔너리를 FastAPI가 자동으로 JSON으로 변환해 응답한다
 
 
-@app.get("/memos/{memo_id}") # URL경로 안에 {memo_id}라는 자리를 만들어 매개변수를 전달함
-def get_memo(memo_id: int): # 받는 값이 URL의 매개변수와 같아야 한다. int는 타입을 미리 알려줘서 문자열 같은걸 자동으로 정수형으로 변환시켜준다. FaastAPI가 알아서 Erorr를 반환해줌.
-    return {"memo_id": memo_id} # 지금은 확인용 Json
+@app.get("/memos/{memo_id}", response_model=MemoResponse) # URL경로 안에 {memo_id}라는 자리를 만들어 매개변수를 전달함
+def get_memo(memo_id: int, db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)): # 받는 값이 URL의 매개변수와 같아야 한다. int는 타입을 미리 알려줘서 문자열 같은걸 자동으로 정수형으로 변환시켜준다. FaastAPI가 알아서 Erorr를 반환해줌.
+    db_memo = db.query(models.MemoDB).filter(models.MemoDB.id == memo_id).first()
+
+    if db_memo is None:
+        raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+
+    if db_memo.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="이 메모를 조회할 권한이 없습니다.")
+
+    return db_memo
 
 @app.get("/memos", response_model=list[MemoResponse])
 def get_memos(db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)): # DB세션을 주입
