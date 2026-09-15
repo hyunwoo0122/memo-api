@@ -1,5 +1,5 @@
 # 테이블에 어떤 컬럼(열)이 있는지를 정의 하는 파일
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, ForeignKey
 from database import Base
 
 # Base를 상속받아 실제 테이블을 나타내는 클래스를 만듬
@@ -10,6 +10,7 @@ class MemoDB(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String)
     content = Column(String)
+    user_id = Column(Integer, ForeignKey("users.id"))
 
 # Base를 상속받아 테이블을 정의 
 class UserDB(Base):

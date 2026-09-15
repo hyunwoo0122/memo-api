@@ -80,7 +80,7 @@ def get_memo(memo_id: int): # 받는 값이 URL의 매개변수와 같아야 한
 
 @app.get("/memos", response_model=list[MemoResponse])
 def get_memos(db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)): # DB세션을 주입
-    return db.query(models.MemoDB).all()  # MemoDB 테이블에 있는 모든 행을 조회해서 리스트로 돌려줌
+    return db.query(models.MemoDB).filter(models.MemoDB.user_id == current_user.id).all()  # MemoDB 테이블에 있는 모든 행을 조회해서 리스트로 돌려줌
 
 @app.post("/memos", response_model=MemoResponse) # /memos주소로 POST방식의 요청이 왔을때 바로 아래 함수를 실행(GET은 데이터 조회, POST는 데이터 생성)
 # 매개변수를 위에서 만든 Memo클래스 타입으로 지정. 요청에 들어온 JSON을 자동으로 클래스 타입인 Memo로 변환
@@ -88,7 +88,7 @@ def get_memos(db: Session = Depends(get_db), current_user: models.UserDB = Depen
 def create_memo(memo: Memo, db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)): 
     # 요청으로 받은 Pydantic Memo 객체(memo)의 값을 이용해서, DB 테이블용 객체(MemoDB)를 새로 만듬
     # (Pydantic 모델과 DB 모델이 이름은 비슷해도 서로 다른 객체라 이렇게 변환해줘야 한다)
-    new_memo = models.MemoDB(title=memo.title, content=memo.content)
+    new_memo = models.MemoDB(title=memo.title, content=memo.content, user_id = current_user.id)
     # 이 객체를 DB 세션에 "추가할 예정"으로 등록 (아직 실제 DB에 저장된 건 아님)
     db.add(new_memo)
     # 지금까지 등록된 변경사항을 실제로 DB 파일에 반영(저장)함. 이 줄이 실행돼야 진짜 저장이 완료
@@ -107,6 +107,10 @@ def update_memo(memo_id: int, memo: Memo, db: Session = Depends(get_db), current
     # ID가 같지 않음 404에러를 출력시킨다
     if db_memo is None:
         raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+
+    # 403 > 누구인지는 확인 했지만 권한이 없다 401 > 누구인지 조차 몰라
+    if db_memo.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="이 메모를 수정할 권한이 없습니다.")
 
     # 찾은ID의 값을 새 값으로 덮어씌운다
     db_memo.title = memo.title
@@ -127,6 +131,11 @@ def delete_memo(memo_id: int, db: Session = Depends(get_db), current_user: model
     # ID가 같지 않음 404에러를 출력시킨다
     if db_memo is None:
         raise HTTPException(status_code=404, detail="메모를 찾을 수 없습니다.")
+
+    if db_memo.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="이 메모를 수정할 권한이 없습니다.")
+
+
 
     # 찾은ID의 값을 지운다
     db.delete(db_memo)
