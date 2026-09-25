@@ -1,0 +1,71 @@
+diff --git a/main.py b/main.py
+index 824197e..5e1cd5b 100644
+--- a/main.py
++++ b/main.py
+@@ -9,6 +9,11 @@ from jose import JWTError, jwt
+ from pydantic import BaseModel
+ from database import Base, engine
+ import models
++
++import ollama
++from langchain_chroma import Chroma
++from langchain_ollama import OllamaEmbeddings
++from langchain_core.documents import Document
+ # 요청이 들어올때 마다 database.py에서 만든 SessionLocal로 세션을 하나 열어서, 그 세션으로 DB에 쿼리를 보내야 한다.
+ # FastAPI에서는 이걸 Dependency(의존성 주입)이라는 방식으로 처리 한다
+ from sqlalchemy.orm import Session
+@@ -69,6 +74,12 @@ class MemoResponse(BaseModel):
+     class Config:
+         from_attributes = True
+ 
++class Question(BaseModel):
++    question: str
++
++class Answer(BaseModel):
++    answer: str
++
+ @app.get("/health") # 데코레이션 >> /health라는 주소로 GET방식의 요청이 왔을때 바로 아래 함수를 실행해라
+ def health_check(): # 실제로 실행되는 함수
+     return {"status": "ok"} # Python 딕셔너리를 FastAPI가 자동으로 JSON으로 변환해 응답한다
+@@ -152,6 +163,41 @@ def delete_memo(memo_id: int, db: Session = Depends(get_db), current_user: model
+     return {"message": "삭제되었습니다."}
+ 
+ 
++@app.post("/memos/ask", response_model=Answer)
++def ask_memo(question: Question, db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)):
++    my_memos = db.query(models.MemoDB).filter(models.MemoDB.user_id == current_user.id).all()
++
++    if not my_memos:
++        raise HTTPException(status_code=404, detail="메모가 없습니다")
++
++    # nomic-embed-text는 문서 임베딩 시 "search_document: " 접두사가 필요함 (없으면 검색 정확도 떨어짐)
++    documents = [
++        Document(page_content="search_document: " + memo.content, metadata={"memo_id": memo.id})
++        for memo in my_memos
++    ]
++
++    embeddings = OllamaEmbeddings(model="nomic-embed-text")
++    vectorstore = Chroma.from_documents(documents=documents, embedding=embeddings)
++
++    # 질문도 동일하게 "search_query: " 접두사 필요
++    results = vectorstore.similarity_search("search_query: " + question.question, k=1)
++    best_memo = results[0].page_content.replace("search_document: ", "")
++
++    prompt = f"""다음 메모를 참고해서 질문에 답해줘.
++
++메모 : {best_memo}
++
++질문 : {question.question}
++"""
++
++    response = ollama.chat(
++        model="llama3.1:8b",
++        messages=[{"role": "user", "content": prompt}]
++    )
++
++    return {"answer": response["message"]["content"]}
++
++
+ @app.post("/register")
+ def register(user: UserCreate, db: Session = Depends(get_db)):
+     # username이 있는지 확인
