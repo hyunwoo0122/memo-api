@@ -1,7 +1,7 @@
 # passlib 도구를 가져온다
 from passlib.context import CryptContext
 # 토큰의 만료시간,
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 # 실제로 토큰을 만들고 해석하는 기능
 from jose import jwt
 
@@ -28,6 +28,6 @@ ACCESS_TOKEN_EXPIRE_MINUTES = 30
 def create_access_token(data: dict) -> str:
     # 원본데이터를 건들지 않기 위해 복사
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)

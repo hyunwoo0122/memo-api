@@ -6,7 +6,7 @@ from fastapi import FastAPI, Depends, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from database import Base, engine
 import models
 
@@ -71,8 +71,7 @@ class MemoResponse(BaseModel):
     content: str
 
     # 원래 Pydantic은 딕셔너리를 기대하는데 True로 하면 SQLAlchemy객체(MemoDB 인스턴스)처럼 같은 속성의 값도 가져온다 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class Question(BaseModel):
     question: str
