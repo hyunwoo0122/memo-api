@@ -21,8 +21,18 @@ from database import SessionLocal
 
 import auth
 
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI() # 클래스를 실제 애플리케이션 객체 app을 만든다. 이후 모든 API는 app에 등록된다
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Base에 등록된 모든 테이블 정의를 실제로 engine이 연결된 DB에 생성하라는 뜻.
 Base.metadata.create_all(bind=engine)

@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>메모 앱</title>
+</head>
+<body>
+    <h2>로그인</h2>
+        <input type="text" id="username" placeholder="아이디">
+        <input type="password" id="password" placeholder="비밀번호">
+        <button onclick="login()">로그인</button>
+    <h1>내 메모</h1>
+
+    <ul id="memoList">
+        <li>첫 번째 메모</li>
+        <li>두 번째 메모</li>
+    </ul>
+
+    <input type="text" id="memoTitle" placeholder="제목을 입력하세요">
+    <button onclick="sayHello()">추가</button>
+    <script>
+    var accessToken = "";
+
+    function login() {
+        var username = document.getElementById("username").value;
+        var password = document.getElementById("password").value;
+
+        fetch("http://127.0.0.1:8000/login", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                username: username,
+                password: password
+            })
+        })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                accessToken = data.access_token;
+                loadMemos();
+            });
+
+    function loadMemos() {
+    fetch("http://127.0.0.1:8000/memos", {
+        method: "GET",
+        headers: {
+            "Authorization": "Bearer " + accessToken
+        }
+    })
+        .then(function(response) {
+            return response.json();
+        })
+        .then(function(memos) {
+            var listElement = document.getElementById("memoList");
+            listElement.innerHTML = "";
+
+            for (var i = 0; i < memos.length; i++) {
+                var newItem = document.createElement("li");
+                newItem.textContent = memos[i].title;
+                listElement.appendChild(newItem);
+            }
+        });
+}
+    }
+</script>
+</body>
+</html>
