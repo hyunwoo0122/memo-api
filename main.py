@@ -181,15 +181,15 @@ def ask_memo(question: Question, db: Session = Depends(get_db), current_user: mo
 
     # nomic-embed-text는 문서 임베딩 시 "search_document: " 접두사가 필요함 (없으면 검색 정확도 떨어짐)
     documents = [
-        Document(page_content="search_document: " + memo.content, metadata={"memo_id": memo.id})
+        Document(page_content=f"search_document: 제목: {memo.title}\n내용: {memo.content}", metadata={"memo_id": memo.id})
         for memo in my_memos
     ]
 
-    embeddings = OllamaEmbeddings(model="nomic-embed-text")
+    embeddings = OllamaEmbeddings(model="daynice/kure-v1")
     vectorstore = Chroma.from_documents(documents=documents, embedding=embeddings)
 
     # 질문도 동일하게 "search_query: " 접두사 필요
-    results = vectorstore.similarity_search("search_query: " + question.question, k=1)
+    results = vectorstore.similarity_search("search_query: " + question.question, k=5)
     best_memo = results[0].page_content.replace("search_document: ", "")
 
     prompt = f"""다음 메모를 참고해서 질문에 답해줘.
