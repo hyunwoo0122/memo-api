@@ -9,16 +9,14 @@
         <input type="text" id="username" placeholder="아이디">
         <input type="password" id="password" placeholder="비밀번호">
         <button onclick="login()">로그인</button>
-    <h1>내 메모</h1>
+    <h2>내 메모</h2>
+    <ul id="memoList"></ul>
 
-    <ul id="memoList">
-        <li>첫 번째 메모</li>
-        <li>두 번째 메모</li>
-    </ul>
-
-    <input type="text" id="memoTitle" placeholder="제목을 입력하세요">
-    <button onclick="sayHello()">추가</button>
+    <input type="text" id="memoTitle" placeholder="제목">
+    <input type="text" id="memoContent" placeholder="내용">
+    <button onclick="createMemo()">메모 추가</button>
     <script>
+
     var accessToken = "";
 
     function login() {
@@ -42,29 +40,55 @@
                 accessToken = data.access_token;
                 loadMemos();
             });
+}
+
+    function createMemo() {
+        var title = document.getElementById("memoTitle").value;
+        var content = document.getElementById("memoContent").value;
+
+        fetch("http://127.0.0.1:8000/memos", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + accessToken
+            },
+            body: JSON.stringify({
+                title: title,
+                content: content
+            })
+        })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                document.getElementById("memoTitle").value = "";
+                document.getElementById("memoContent").value = "";
+                loadMemos();
+            });
+    }
 
     function loadMemos() {
-    fetch("http://127.0.0.1:8000/memos", {
-        method: "GET",
-        headers: {
-            "Authorization": "Bearer " + accessToken
-        }
-    })
-        .then(function(response) {
-            return response.json();
-        })
-        .then(function(memos) {
-            var listElement = document.getElementById("memoList");
-            listElement.innerHTML = "";
-
-            for (var i = 0; i < memos.length; i++) {
-                var newItem = document.createElement("li");
-                newItem.textContent = memos[i].title;
-                listElement.appendChild(newItem);
+        fetch("http://127.0.0.1:8000/memos", {
+            method: "GET",
+            headers: {
+                "Authorization": "Bearer " + accessToken
             }
-        });
-}
+        })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(memos) {
+                var listElement = document.getElementById("memoList");
+                listElement.innerHTML = "";
+
+                for (var i = 0; i < memos.length; i++) {
+                    var newItem = document.createElement("li");
+                    newItem.textContent = memos[i].title;
+                    listElement.appendChild(newItem);
+                }
+            });
     }
+
 </script>
 </body>
 </html>
