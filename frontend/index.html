@@ -88,7 +88,33 @@
                 }
             });
     }
+    function askQuestion() {
+        var question = document.getElementById("question").value;
+
+        document.getElementById("answer").textContent = "답변을 생성하는 중입니다...";
+
+        fetch("http://127.0.0.1:8000/memos/ask", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": "Bearer " + accessToken
+            },
+            body: JSON.stringify({
+                question: question
+            })
+        })
+            .then(function(response) {
+                return response.json();
+            })
+            .then(function(data) {
+                document.getElementById("answer").textContent = data.answer;
+            });
+}
 
 </script>
+    <h2>메모에게 질문하기</h2>
+    <input type="text" id="question" placeholder="궁금한 걸 물어보세요">
+    <button onclick="askQuestion()">질문하기</button>
+    <p id="answer"></p>
 </body>
 </html>
