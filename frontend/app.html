@@ -6,6 +6,167 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #f5f6fa;
+            color: #1f2937;
+            font-family: -apple-system, "Apple SD Gothic Neo", sans-serif;
+            line-height: 1.5;
+        }
+
+        .container {
+            max-width: 640px;
+            margin: 0 auto;
+            padding: 56px 20px 80px;
+        }
+
+        .header {
+            margin-bottom: 28px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: #111827;
+        }
+
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 1px 2px rgba(17, 24, 39, 0.04), 0 4px 12px rgba(17, 24, 39, 0.05);
+        }
+
+        .card h2 {
+            margin: 0 0 16px;
+            font-size: 17px;
+            font-weight: 600;
+            color: #111827;
+        }
+
+        .stack {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .row input {
+            flex: 1;
+            min-width: 0;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 14px;
+            font-size: 15px;
+            font-family: inherit;
+            color: #111827;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+
+        input::placeholder {
+            color: #9ca3af;
+        }
+
+        input:focus {
+            border-color: #4f46e5;
+            box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
+        }
+
+        button {
+            padding: 12px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            font-family: inherit;
+            color: #ffffff;
+            background: #4f46e5;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.15s;
+        }
+
+        button:hover {
+            background: #4338ca;
+        }
+
+        button:active {
+            background: #3730a3;
+        }
+
+        .answer {
+            margin: 16px 0 0;
+            padding: 14px 16px;
+            background: #eef2ff;
+            color: #312e81;
+            border-radius: 12px;
+            border-top-left-radius: 4px;
+            white-space: pre-wrap;
+        }
+
+        .answer:empty {
+            display: none;
+        }
+
+        .memo-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .memo-item {
+            padding: 12px 14px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            color: #374151;
+            word-break: break-word;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 32px 16px 56px;
+            }
+
+            .header h1 {
+                font-size: 24px;
+            }
+
+            .card {
+                padding: 18px;
+            }
+
+            .row {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+            }
+        }
+    </style>
 </head>
 <body>
     <div id="root"></div>
@@ -116,53 +277,71 @@
             }, [accessToken]);
 
             return (
-                <div>
-                    <h2>로그인</h2>
-                    <input
-                        type="text"
-                        placeholder="아이디"
-                        value={username}
-                        onChange={function(e) { setUsername(e.target.value); }}
-                    />
-                    <input
-                        type="password"
-                        placeholder="비밀번호"
-                        value={password}
-                        onChange={function(e) { setPassword(e.target.value); }}
-                    />
-                    <button onClick={login}>로그인</button>
+                <div className="container">
+                    <header className="header">
+                        <h1>메모 앱</h1>
+                    </header>
 
-                    <h2>메모 쓰기</h2>
-                    <input
-                        type="text"
-                        placeholder="제목"
-                        value={title}
-                        onChange={function(e) { setTitle(e.target.value); }}
-                    />
-                    <input
-                        type="text"
-                        placeholder="내용"
-                        value={content}
-                        onChange={function(e) { setContent(e.target.value); }}
-                    />
-                    <button onClick={createMemo}>저장</button>
+                    <div className="card">
+                        <h2>로그인</h2>
+                        <div className="stack">
+                            <input
+                                type="text"
+                                placeholder="아이디"
+                                value={username}
+                                onChange={function(e) { setUsername(e.target.value); }}
+                            />
+                            <input
+                                type="password"
+                                placeholder="비밀번호"
+                                value={password}
+                                onChange={function(e) { setPassword(e.target.value); }}
+                            />
+                            <button onClick={login}>로그인</button>
+                        </div>
+                    </div>
 
-                    <h2>질문하기</h2>
-                    <input
-                        type="text"
-                        placeholder="메모에 대해 질문하세요"
-                        value={question}
-                        onChange={function(e) { setQuestion(e.target.value); }}
-                    />
-                    <button onClick={askQuestion}>질문</button>
-                    <p>{answer}</p>
+                    <div className="card">
+                        <h2>메모 쓰기</h2>
+                        <div className="stack">
+                            <input
+                                type="text"
+                                placeholder="제목"
+                                value={title}
+                                onChange={function(e) { setTitle(e.target.value); }}
+                            />
+                            <input
+                                type="text"
+                                placeholder="내용"
+                                value={content}
+                                onChange={function(e) { setContent(e.target.value); }}
+                            />
+                            <button onClick={createMemo}>저장</button>
+                        </div>
+                    </div>
 
-                    <h2>내 메모</h2>
-                    <ul>
-                        {memos.map(function(memo) {
-                            return <li key={memo.id}>{memo.title}</li>;
-                        })}
-                    </ul>
+                    <div className="card">
+                        <h2>질문하기</h2>
+                        <div className="row">
+                            <input
+                                type="text"
+                                placeholder="메모에 대해 질문하세요"
+                                value={question}
+                                onChange={function(e) { setQuestion(e.target.value); }}
+                            />
+                            <button onClick={askQuestion}>질문</button>
+                        </div>
+                        <p className="answer">{answer}</p>
+                    </div>
+
+                    <div className="card">
+                        <h2>내 메모</h2>
+                        <ul className="memo-list">
+                            {memos.map(function(memo) {
+                                return <li key={memo.id} className="memo-item">{memo.title}</li>;
+                            })}
+                        </ul>
+                    </div>
                 </div>
             );
         }
