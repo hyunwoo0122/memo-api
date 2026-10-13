@@ -1,3 +1,6 @@
 venv/
 __pycache__/
 memo.db
+.DS_Store
+.pytest_cache/
+chroma_db/
