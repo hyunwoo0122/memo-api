@@ -64,7 +64,26 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         raise HTTPException(status_code= 401, detail= "사용자를 찾을 수 없습니다.")
 
     return user
-    
+
+# 모든 사용자의 메모 벡터를 저장하는 영구 벡터DB (chroma_db 폴더에 저장됨)
+# 사용자 구분은 metadata의 user_id로 하고, 벡터 id는 str(memo.id)를 써서 수정/삭제 시 같은 벡터를 찾는다
+vectorstore = Chroma(
+    collection_name="memos",
+    persist_directory="chroma_db",
+    embedding_function=OllamaEmbeddings(model="daynice/kure-v1"),
+)
+
+def memo_to_document(memo):
+    # nomic-embed-text는 문서 임베딩 시 "search_document: " 접두사가 필요함 (없으면 검색 정확도 떨어짐)
+    return Document(
+        page_content=f"search_document: 제목: {memo.title}\n내용: {memo.content}",
+        metadata={"user_id": memo.user_id, "memo_id": memo.id},
+    )
+
+def upsert_memo_vector(memo):
+    # add_documents는 같은 id가 있으면 덮어쓴다(upsert). 수정 시에도 그대로 사용
+    vectorstore.add_documents([memo_to_document(memo)], ids=[str(memo.id)])
+
 class Memo(BaseModel): # BaseModel을 상속받아 Memo라는 새 클라스를 정의 하고 "메모 하나의 데이터 형태"를 나타냄
     # 메모가 반드시 가져야 하는 항목
     title: str
@@ -123,6 +142,8 @@ def create_memo(memo: Memo, db: Session = Depends(get_db), current_user: models.
     db.commit()
     # DB가 자동으로 채워준 값(예: id)을 new_memo 객체에 다시 불러온다. (커밋 직후엔 id가 아직 비어있을 수 있어서 필요합니다.)
     db.refresh(new_memo)
+    # DB에 저장된 뒤(id가 생긴 뒤) 벡터DB에도 추가
+    upsert_memo_vector(new_memo)
     return new_memo
 
 # URL에서 어떤 메모를 수정할지 ID를 받음
@@ -147,6 +168,8 @@ def update_memo(memo_id: int, memo: Memo, db: Session = Depends(get_db), current
     db.commit()
     # 최신상태를 불러온다 
     db.refresh(db_memo)
+    # 같은 id로 벡터도 갱신
+    upsert_memo_vector(db_memo)
     return db_memo
 
 # URL에서 어떤 메모를 수정할지 ID를 받음
@@ -169,30 +192,26 @@ def delete_memo(memo_id: int, db: Session = Depends(get_db), current_user: model
     db.delete(db_memo)
     # 실제로 반영
     db.commit()
+    # 벡터DB에서도 삭제
+    vectorstore.delete(ids=[str(memo_id)])
     return {"message": "삭제되었습니다."}
 
 
 @app.post("/memos/ask", response_model=Answer)
 def ask_memo(question: Question, db: Session = Depends(get_db), current_user: models.UserDB = Depends(get_current_user)):
-    my_memos = db.query(models.MemoDB).filter(models.MemoDB.user_id == current_user.id).all()
+    # 질문도 동일하게 "search_query: " 접두사 필요. filter로 본인 메모만 검색
+    results = vectorstore.similarity_search(
+        "search_query: " + question.question,
+        k=5,
+        filter={"user_id": current_user.id},
+    )
 
-    if not my_memos:
+    if not results:
         raise HTTPException(status_code=404, detail="메모가 없습니다")
 
-    # nomic-embed-text는 문서 임베딩 시 "search_document: " 접두사가 필요함 (없으면 검색 정확도 떨어짐)
-    documents = [
-        Document(page_content=f"search_document: 제목: {memo.title}\n내용: {memo.content}", metadata={"memo_id": memo.id})
-        for memo in my_memos
-    ]
-
-    embeddings = OllamaEmbeddings(model="daynice/kure-v1")
-    vectorstore = Chroma.from_documents(documents=documents, embedding=embeddings)
-
-    # 질문도 동일하게 "search_query: " 접두사 필요
-    results = vectorstore.similarity_search("search_query: " + question.question, k=5)
     best_memo = results[0].page_content.replace("search_document: ", "")
 
-    prompt = f"""다음 메모를 참고해서 질문에 답해줘.
+    prompt = f"""메모 내용만 근거로, 자연스러운 한국어 한 문장으로 답해줘.
 
 메모 : {best_memo}
 
