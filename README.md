@@ -83,3 +83,31 @@ If a memo's `user_id` differs from the currently logged-in user, the API returns
 **Verification**
 
 I created two test accounts and verified with pytest that updating or deleting another user's memo returns 403. The delete test also confirms that the memo still exists after the attempt.
+
+### 3. Persisting embeddings instead of re-embedding on every question
+
+**Problem**
+
+Every time a question was asked, all memos were re-embedded and a new Chroma store was built from scratch, so response time grew as the number of memos increased.
+
+**Measurement**
+
+With 6 memos, the first question took about 9 seconds (including model loading), and repeating the same question for the 2nd and 3rd time took about 1 second.
+With 100 memos, the first question took about 13 seconds, and the 2nd and 3rd attempts took about 3 seconds.
+I compared the 2nd and 3rd values, since they do not include model loading.
+
+**Solution**
+
+Memos are now embedded once, when they are saved, and persisted in Chroma.
+Each vector carries the `user_id` as metadata, and questions are searched with a `filter` so that only the user's own memos are retrieved.
+
+**Result**
+
+With 100 memos, the time per question dropped from about 3 seconds to about 1-2 seconds (measured with a stopwatch).
+At question time only the question itself is embedded, so the embedding cost does not grow as the number of memos increases.
+
+**Known limitation**
+
+Most of the remaining time is answer generation by llama3.1:8b.
+The generation model sometimes produces awkward Korean sentences. I left this as a separate issue that can be improved by swapping the model.
+I have not measured with large datasets (thousands of memos or more).
